@@ -1,20 +1,20 @@
 import json
 import requests
 import subprocess
-from flask import Flask, request, View
-
+from flask import Flask, request
+from flask.views import MethodView
 app = Flask(__name__)
 
-class YoutubeAutoComplete(View):
+class YoutubeAutoComplete(MethodView):
 	def get(self):
-		query = request.forms.get('q')
+		query = request.args.get('q')
 		return "coming soon"
 
 
-class YoutubeSearch(View):
+class YoutubeSearch(MethodView):
 	def get(self):
-		query = request.forms.get('query')
-		limit = int(request.forms.get('limit',10))
+		query = request.args.get('query')
+		limit = int(request.args.get('limit',10))
 		if limit > 30:
 			limit = 30
 		if limit <= 0:
@@ -34,19 +34,39 @@ class YoutubeSearch(View):
 		except Exception as err:
 			return {"err":err}
 
-class YoutubeVideoInfo(View):
+class YoutubeVideoInfo(MethodView):
 	def get(self):
-		video_id = request.forms.get('id')
+		video_id = request.args.get('id')
+		resp = subprocess.run(
+			['yt-dlp','-J',f"https://youtube.com/watch?v={video_id}"],
+			capture_output=True,
+			text=True
+			)
+		print(f"https://youtube.com/watch?v={video_id}")
+		if resp.returncode != 0:
+			{"err":resp.stderr}
+		try:
+			json_data = json.loads(resp.stdout)
+		except Exception as err:
+			{"err":err}
+		clean_response = {}
+		for key in ["id","uploader","uploader_id",
+					"title","tags","duration",
+					"thumbnail","like_count",
+					"comment_count","description","view_count",
+					"categories","upload_date","chapters"]:
+			clean_response[key] = json_data.get(key)
+		return clean_response
 
 
-class YoutubeVideoFormats(View):
+class YoutubeVideoFormats(MethodView):
 	"""
 	 This class, returns the video formats from id.
 	 	Usage:
 	 		/api/v1/formats/:id
 	"""
 	def get(self):
-		video_id = request.forms.get('id','')
+		video_id = request.args.get('id')
 
 		if not video_id or len(video_id) != 11:
 			return {"err",f"{video_id} is not a valid youtube video id! "},400
@@ -80,15 +100,9 @@ class YoutubeVideoFormats(View):
 			return {"err":f"Unexpected error:{err}"},500
 
 
-endpoints = [
-	{"url":"/api/v1/search","func":YoutubeSearch,"name":"youtube_search"},
-	{"url":"/api/v1/video","func":},
-	{"url":"/api/v1/autocomplete","func":}
-]
 
-
-
+#app.add_url_rule(endpoint['url'],endpoint['func'].as_view(endpoint['name']))
+app.add_url_rule("/formats",view_func=YoutubeVideoFormats.as_view("formats"))
+app.add_url_rule("/video",view_func=YoutubeVideoInfo.as_view("video"))
 if __name__ == "__main__":
-	for endpoint in endpoints:
-		app.add_url_rule(endpoint['url'],endpoint['func'].as_view(endpoint['name']))
 	app.run()
