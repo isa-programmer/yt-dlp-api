@@ -1,3 +1,4 @@
+import ast
 import json
 import requests
 import subprocess
@@ -8,7 +9,22 @@ app = Flask(__name__)
 class YoutubeAutoComplete(MethodView):
 	def get(self):
 		query = request.args.get('q')
-		return "coming soon"
+		headers = {
+    		'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0',
+		}
+
+		params = {
+    		'client': 'youtube',
+    		'q': query,
+		}
+		try:
+			response = requests.get('https://suggestqueries-clients6.youtube.com/complete/search',
+									params=params,headers=headers)
+		except Exception as err:
+			return {"err":err}
+		if not response.ok:
+			return {"err":"Request failed with {response.status_code}"}
+		return [suggest[0] for suggest in ast.literal_eval(response.text[19:-1])[1]]
 
 
 class YoutubeSearch(MethodView):
@@ -101,7 +117,7 @@ class YoutubeVideoFormats(MethodView):
 
 
 
-#app.add_url_rule(endpoint['url'],endpoint['func'].as_view(endpoint['name']))
+app.add_url_rule("/autocomplete",view_func=YoutubeAutoComplete.as_view("autocomplete"))
 app.add_url_rule("/formats",view_func=YoutubeVideoFormats.as_view("formats"))
 app.add_url_rule("/video",view_func=YoutubeVideoInfo.as_view("video"))
 if __name__ == "__main__":
