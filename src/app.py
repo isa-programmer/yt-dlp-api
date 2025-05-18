@@ -7,8 +7,10 @@ from flask.views import MethodView
 app = Flask(__name__)
 
 class YoutubeAutoComplete(MethodView):
-	def get(self):
-		query = request.args.get('q')
+	def get(self,):
+		query = request.args.get('q','')
+		if not query:
+			return {"err":"Empty input"}
 		headers = {
     		'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0',
 		}
@@ -25,6 +27,9 @@ class YoutubeAutoComplete(MethodView):
 		if not response.ok:
 			return {"err":"Request failed with {response.status_code}"}
 		return [suggest[0] for suggest in ast.literal_eval(response.text[19:-1])[1]]
+
+class YoutubeChannel(MethodView):
+	def get(self,channel_id):
 
 
 class YoutubeSearch(MethodView):
@@ -114,7 +119,6 @@ class YoutubeVideoFormats(MethodView):
 		
 		except Exception as err:
 			return {"err":f"Unexpected error:{err}"},500
-
 
 
 app.add_url_rule("/autocomplete",view_func=YoutubeAutoComplete.as_view("autocomplete"))
